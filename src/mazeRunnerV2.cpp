@@ -1,7 +1,7 @@
 //===============================
 // 3pi+ Line Maze Runner V2
 // Improved Maze Runner.
-// By: aldrick-t, DaniDRG04
+// By: aldrick-t, DaniDRG04, Arles
 // Version: (May 2024)
 //
 //===============================
@@ -706,7 +706,7 @@ void mazeRunner() {
 
     //Crawl Forward to verify intersection detection
     motors.setSpeeds(61,61);
-    delay(38);
+    delay(38); //Essential timing delay
 
     leftMem = 0;
     centerMem = 0;
@@ -725,7 +725,7 @@ void mazeRunner() {
     //Align to wheel
     crawlFwd_alignToWheel();
     motors.setSpeeds(0,0);
-    delay(250);
+    delay(100); //Non essential delay
 
     //Update Sensors again
     updateSensors();
@@ -763,20 +763,34 @@ void mazeRunner() {
 
     display.gotoXY(0,3);
     display.print(decision);
-    delay(500);
+    delay(100); //Non essential delay
 
     turnControl();
     motors.setSpeeds(0,0);
-    delay(250);
+    delay(100); //Non essential delay
 
-    decisionCount++;
-    decisionHistory[decisionCount] = decisionMem;
+    //Store decision in memory if intersection not adding basic turns
+    if (decision == 'U') {
+      decisionMem = decision;
+      decisionCount++;
+      decisionHistory[decisionCount] = decisionMem;
+    }
+    else if (decision == 'S' && (centerMem && (leftMem || rightMem))) {
+      decisionMem = decision;
+      decisionCount++;
+      decisionHistory[decisionCount] = decisionMem;
+    }
+    else if (leftMem && rightMem) {
+      decisionMem = decision;
+      decisionCount++;
+      decisionHistory[decisionCount] = decisionMem;
+    }
   }
   while(true) {
     display.gotoXY(0,0);
     display.print("Maze Solved!     ");
     optimizePath(decisionHistory, decisionCount);
-    display.gotoXY(0,5);
+    display.gotoXY(0,6);
     for(int i = 0; i <= decisionCount; i++) {
       display.print(decisionHistory[i]);
       display.print(" ");
@@ -794,7 +808,7 @@ void mazeRunner() {
 void optimizePath(char path[], int &decisionCount) {
   char optimizedPath[MAX_DECISIONS];
   int optIndex = 0;
-
+  
   for (int i = 0; i <= decisionCount; ++i) {
     // Check for patterns of 3 decisions to apply simplification rules
     if (i < decisionCount - 1) {
@@ -802,7 +816,28 @@ void optimizePath(char path[], int &decisionCount) {
       pattern += path[i];
       pattern += path[i + 1];
       pattern += path[i + 2];
-      if (pattern == "SUL") {
+      if (pattern == "RUR") {
+        optimizedPath[optIndex++] = 'S';
+        i += 2; // Skip two additional positions
+        continue;
+      } else if (pattern == "RUL") {
+        optimizedPath[optIndex++] = 'S';
+        i += 2; // Skip two additional positions
+        continue;
+      } else if (pattern == "RUS") {
+        optimizedPath[optIndex++] = 'L';
+        i += 2; // Skip two additional positions
+        continue;
+      } else if (pattern == "LUR") {
+        optimizedPath[optIndex++] = 'R';
+        i += 2; // Skip two additional positions
+        continue;
+      } 
+      else if (pattern == "LUL") {
+        optimizedPath[optIndex++] = 'S';
+        i += 2; // Skip two additional positions
+        continue;
+      } else if (pattern == "LUS") {
         optimizedPath[optIndex++] = 'R';
         i += 2; // Skip two additional positions
         continue;
@@ -810,15 +845,16 @@ void optimizePath(char path[], int &decisionCount) {
         optimizedPath[optIndex++] = 'L';
         i += 2; // Skip two additional positions
         continue;
-      } else if (pattern == "LUL") {
-        optimizedPath[optIndex++] = 'S';
+      } else if (pattern == "SUL") {
+        optimizedPath[optIndex++] = 'R';
         i += 2; // Skip two additional positions
         continue;
-      } else if (pattern == "RUR") {
-        optimizedPath[optIndex++] = 'S';
+      } 
+      else if (pattern == "SUS") {
+        optimizedPath[optIndex++] = 'U';
         i += 2; // Skip two additional positions
         continue;
-      }
+      } 
     }
     // If no pattern is found, add the current decision
     optimizedPath[optIndex++] = path[i];
@@ -831,6 +867,17 @@ void optimizePath(char path[], int &decisionCount) {
   decisionCount = optIndex - 1;
 }
 
+// Use the optimized array
+  //  if (rightHand) {
+  //    display.gotoXY(0,3);
+  //    display.print("Right Hand Rule");
+  //    rightHandRule();
+  //  }
+  //  else if (!rightHand){ 
+  //    display.gotoXY(0,3);
+  //    display.print("Left Hand Rule");
+  //    leftHandRule(); 
+  //  }
 //Raw encoder to degree conversion
 float tick2deg(int ticks) {
   float deg;
@@ -890,27 +937,6 @@ void crawlFwd_alignToWheel() {
 
 char leftHandRule() {
   delay(50);
-  // if(leftMem == 0 && centerMem == 0 && rightMem == 1) {
-  //   decision = 'R';
-  //   return 'R';
-  // }
-  // else if(leftMem == 1 && centerMem == 1 && rightMem == 0) {
-  //   decision = 'L';
-  //   decisionMem = 'L';
-  //   return 'L';
-  // }
-  // else if(leftMem == 1 && centerMem == 0 && rightMem == 0) {
-  //   decision = 'L';
-  //   return 'L';
-  // }
-  // else if(leftMem == 0 && centerMem == 1 && rightMem == 1) {
-  //   decision = 'S';
-  //   return 'S';
-  // }
-  // else if(leftMem == 1 && centerMem == 0 && rightMem == 1) {
-  //   decision = 'L';
-  //   return 'L';
-  // }
   if(leftMem){
     delay(50);
     decision = 'L';
