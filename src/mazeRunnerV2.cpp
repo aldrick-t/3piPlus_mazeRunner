@@ -934,79 +934,95 @@ void mazeRunner() {
 
 //==================== Utility Functions ==========================
 
-//Path optimizer
-void optimizePath(char path[], int &decisionCount) {
-  
-  int optIndex = 0;
-  int u = 0;
-  while(true) {
-    u = 0;
-    optIndex = 0;
-    for (int i = 0; i <= decisionCount; ++i) {
-      // Check for patterns of 3 decisions to apply simplification rules
-      if (i < decisionCount - 1) {
-        String pattern = "";
-        pattern += path[i];
-        pattern += path[i + 1];
-        pattern += path[i + 2];
-        if (pattern == "RUR") {
-          optimizedPath[optIndex++] = 'S';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "RUL") {
-          optimizedPath[optIndex++] = 'U';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "RUS") {
-          optimizedPath[optIndex++] = 'L';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "LUR") {
-          optimizedPath[optIndex++] = 'U';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "LUL") {
-          optimizedPath[optIndex++] = 'S';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "LUS") {
-          optimizedPath[optIndex++] = 'R';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "SUR") {
-          optimizedPath[optIndex++] = 'L';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "SUL") {
-          optimizedPath[optIndex++] = 'R';
-          i += 2; // Skip two additional positions
-          continue;
-        } else if (pattern == "SUS") {
-          optimizedPath[optIndex++] = 'U';
-          i += 2; // Skip two additional positions
-          continue;
-        } 
-      }//if end
-      // If no pattern is found, add the current decision
-      optimizedPath[optIndex++] = path[i];
-    }//for end
+// Helper function to shift the array elements to the left
+void shiftArrayLeft(char path[], int start, int shiftBy, int &len) {
+    for (int i = start; i < len - shiftBy; i++) {
+        path[i] = path[i + shiftBy];
+    }
+    len -= shiftBy;
+}
 
-    // Copy the optimized path back to the original array
-    for (int i = 0; i < optIndex; i++) {
-      path[i] = optimizedPath[i];
+// Path optimizer function
+void optimizePath(char path[], int &decisionCount) {
+    bool simplified = true;
+    int optIndex = 0;
+    int u = 0;
+
+    while (simplified) {
+        simplified = false;
+        optIndex = 0;
+
+        for (int i = 0; i <= decisionCount; ++i) {
+            // Check for patterns of 3 decisions to apply simplification rules
+            if (i < decisionCount - 1) {
+                if (path[i] == 'S' && path[i + 1] == 'U' && path[i + 2] == 'L') {
+                    optimizedPath[optIndex++] = 'R';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'S' && path[i + 1] == 'U' && path[i + 2] == 'R') {
+                    optimizedPath[optIndex++] = 'L';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'L' && path[i + 1] == 'U' && path[i + 2] == 'S') {
+                    optimizedPath[optIndex++] = 'R';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'R' && path[i + 1] == 'U' && path[i + 2] == 'S') {
+                    optimizedPath[optIndex++] = 'L';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'L' && path[i + 1] == 'U' && path[i + 2] == 'L') {
+                    optimizedPath[optIndex++] = 'S';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'R' && path[i + 1] == 'U' && path[i + 2] == 'R') {
+                    optimizedPath[optIndex++] = 'S';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'R' && path[i + 1] == 'U' && path[i + 2] == 'L') {
+                    optimizedPath[optIndex++] = 'U';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'L' && path[i + 1] == 'U' && path[i + 2] == 'R') {
+                    optimizedPath[optIndex++] = 'U';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                } else if (path[i] == 'S' && path[i + 1] == 'U' && path[i + 2] == 'S') {
+                    optimizedPath[optIndex++] = 'U';
+                    i += 2; // Skip two additional positions
+                    simplified = true;
+                    continue;
+                }
+            }
+            // If no pattern is found, add the current decision
+            optimizedPath[optIndex++] = path[i];
+        }
+
+        // Copy the optimized path back to the original array
+        for (int i = 0; i < optIndex; i++) {
+            path[i] = optimizedPath[i];
+        }
+
+        // Verify if the optimized path still contains any U-turns
+        u = 0;
+        for (int i = 0; i < optIndex; ++i) {
+            if (optimizedPath[i] == 'U') {
+                u++;
+            }
+        }
+        if (u == 0) {
+            decisionCount = optIndex - 1;
+            break;
+        }
     }
-    
-    // verify if the optimized path still contains any uturns 
-    for (int i = 0; i<= decisionCount; ++i) {
-      if(optimizedPath[i] == 'U') {
-        u++;
-      }
-    }
-    if (u == 0) {
-      decisionCount = optIndex - 1;
-      break;
-    }
-  }//while end
 }
 
 //Raw encoder to degree conversion
