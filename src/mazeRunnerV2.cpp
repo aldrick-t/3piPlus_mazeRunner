@@ -1,8 +1,8 @@
-//===============================
+ //===============================
 // 3pi+ Line Maze Runner V2
 // Improved Maze Runner.
-// By: aldrick-t, DaniDRG04, Arles
-// Version: (May 2024)
+// By: aldrick-t, DaniDRG04, ArlesMolina
+// Version: 1.1 (JUN 2024)
 //
 //===============================
 
@@ -46,7 +46,9 @@ uint16_t sensVals[4];
 //Maze Runner Decision Memory Variables
 const int MAX_DECISIONS = 100; // Maximum size of the decision history
 char decisionHistory[MAX_DECISIONS]; // Stores decisions made during the first run
+char optimizedPath[MAX_DECISIONS]; // optimized path
 int decisionCount = -1; // Initialize at -1 because we increment before storing
+int optCount = -1;
 char decision = 0;
 char decisionMem = 0;
 bool deadEnd = false;
@@ -210,6 +212,7 @@ void setup() {
   display.clear();
 
   bumpSensors.calibrate();
+  Serial.begin(9600);
 }
 
 void loop() {
@@ -754,6 +757,7 @@ void mazeRunner() {
       display.print("Left Hand Rule");
       leftHandRule(); 
     }
+    
     if(leftMem == 0 && centerMem == 0 && rightMem == 1) {
       decision = 'R';
     }
@@ -769,35 +773,161 @@ void mazeRunner() {
     motors.setSpeeds(0,0);
     delay(100); //Non essential delay
 
-    //Store decision in memory if intersection not adding basic turns
-    if (decision == 'U') {
+    //Store decision in memory if intersection, not adding basic turns
+    if (decision == 'U') { //Record Uturn
       decisionMem = decision;
       decisionCount++;
-      decisionHistory[decisionCount] = decisionMem;
+      decisionHistory[decisionCount] = decision;
     }
-    else if (decision == 'S' && (centerMem && (leftMem || rightMem))) {
+    else if ((centerMem && (leftMem || rightMem))) { //Record T Intersections (SR and SL)
       decisionMem = decision;
       decisionCount++;
-      decisionHistory[decisionCount] = decisionMem;
+      decisionHistory[decisionCount] = decision;
     }
-    else if (leftMem && rightMem) {
+    else if (leftMem && rightMem && (decision == 'L' || decision == 'R')) { 
       decisionMem = decision;
       decisionCount++;
-      decisionHistory[decisionCount] = decisionMem;
+      decisionHistory[decisionCount] = decision;
     }
+
+
+    // decisionCount++;
+    // decisionHistory[decisionCount] = decision;
   }
-  while(true) {
+
+  display.clear();
+  while(true) { //Maze Solved Screen
     display.gotoXY(0,0);
     display.print("Maze Solved!     ");
-    optimizePath(decisionHistory, decisionCount);
-    display.gotoXY(0,6);
+    display.gotoXY(0,1);
+    display.print("Recorded Path:   ");
+    display.gotoXY(0,2);
     for(int i = 0; i <= decisionCount; i++) {
       display.print(decisionHistory[i]);
-      display.print(" ");
       if(i == 20) {
-        display.gotoXY(0,7);
+        display.gotoXY(0,3);
       }
     }
+    optimizePath(decisionHistory, decisionCount);
+    display.gotoXY(0,4);
+    display.print("Optimized Path:  ");
+    display.gotoXY(0,5);
+    for(int i = 0; i <= decisionCount; i++) {
+      display.print(optimizedPath[i]);
+    }
+    display.gotoXY(0,4);
+    if (rightHand) {display.print("Right Hand Rule");}
+    else {display.print("Left Hand Rule");}
+
+    display.gotoXY(0,6);
+    display.print("SER-OUT RUN-OPT  QUIT");
+    display.gotoXY(0,7);
+    display.print(" A        B        C ");
+    if(buttonA.getSingleDebouncedPress()) {
+      for(int i = 0; i <= decisionCount; i++){
+        Serial.print(optimizedPath[i]);
+      }
+    }
+    else if(buttonB.getSingleDebouncedPress()) {
+      modeLoc = 21;
+      break;
+    }
+    else if(buttonC.getSingleDebouncedPress()) {
+      modeLoc = 101;
+      break;
+    }
+  }
+
+  while(modeLoc == 21) {// run optimized maze
+      display.gotoXY(0,0);
+      display.print("Running Opt. Path...");
+        display.print("3");
+        delay(1000);
+        display.print("2");
+        delay(1000);
+        display.print("1");
+        delay(1000);
+
+      //Standard Straight Segment Functionality
+      straightSegment();  
+
+      //Crawl Forward to verify intersection detection
+      motors.setSpeeds(61,61);
+      delay(38); //Essential timing delay
+
+      leftMem = 0;
+      centerMem = 0;
+      rightMem = 0;
+
+      //Update Sensors after intersection detection and crawl
+      updateSensors();
+      leftMem = left;
+      rightMem = right;
+      display.gotoXY(0,1);
+      display.print(leftMem);
+      display.gotoXY(4,1);
+      display.print(rightMem);
+
+      
+      //Align to wheel
+      crawlFwd_alignToWheel();
+      motors.setSpeeds(0,0);
+      delay(100); //Non essential delay
+
+      //Update Sensors again
+      updateSensors();
+      if (center == 1 || sensVals[1] > 700 || sensVals[3] > 700) {
+        centerMem = 1;
+        display.gotoXY(2,1);
+        display.print(centerMem);
+      }
+      else {
+        centerMem = 0;
+        display.gotoXY(2,1);
+        display.print(centerMem);
+      }
+      //End of maze detection
+      if(leftMem && centerMem && rightMem && left && center && right || (optCount == decisionCount)) {
+        display.clear();
+        motors.setSpeeds(0,0);
+        modeLoc = 22;
+        break;
+      }
+
+      //Align to wheel
+      crawlFwd_alignToWheel();
+      motors.setSpeeds(0,0);
+      delay(100); //Non essential delay
+
+
+
+      if(!leftMem && !centerMem && rightMem) {
+        decision = 'R';
+      }
+      else if (leftMem && !centerMem && !rightMem) {
+        decision = 'L';
+      }
+      else {
+        optCount++;
+        decision = optimizedPath[optCount];
+      }
+      if (decision == 'U' && rightMem) {
+        decision = 'R';
+      }
+
+      display.gotoXY(0,1);
+      display.print(decision);
+
+      //Run decision
+      turnControl();
+      motors.setSpeeds(0,0);
+      delay(100);
+  }
+  
+  while(modeLoc == 22) {//Post run opt maze menu (final screen)
+    display.gotoXY(0,0);
+    display.print("Opt. Path Completed!");
+
   }
 
 }
@@ -806,78 +936,79 @@ void mazeRunner() {
 
 //Path optimizer
 void optimizePath(char path[], int &decisionCount) {
-  char optimizedPath[MAX_DECISIONS];
-  int optIndex = 0;
   
-  for (int i = 0; i <= decisionCount; ++i) {
-    // Check for patterns of 3 decisions to apply simplification rules
-    if (i < decisionCount - 1) {
-      String pattern = "";
-      pattern += path[i];
-      pattern += path[i + 1];
-      pattern += path[i + 2];
-      if (pattern == "RUR") {
-        optimizedPath[optIndex++] = 'S';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "RUL") {
-        optimizedPath[optIndex++] = 'S';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "RUS") {
-        optimizedPath[optIndex++] = 'L';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "LUR") {
-        optimizedPath[optIndex++] = 'R';
-        i += 2; // Skip two additional positions
-        continue;
-      } 
-      else if (pattern == "LUL") {
-        optimizedPath[optIndex++] = 'S';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "LUS") {
-        optimizedPath[optIndex++] = 'R';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "SUR") {
-        optimizedPath[optIndex++] = 'L';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "SUL") {
-        optimizedPath[optIndex++] = 'R';
-        i += 2; // Skip two additional positions
-        continue;
-      } 
-      else if (pattern == "SUS") {
-        optimizedPath[optIndex++] = 'U';
-        i += 2; // Skip two additional positions
-        continue;
-      } 
-    }
-    // If no pattern is found, add the current decision
-    optimizedPath[optIndex++] = path[i];
-  }
+  int optIndex = 0;
+  int u = 0;
+  while(true) {
+    u = 0;
+    optIndex = 0;
+    for (int i = 0; i <= decisionCount; ++i) {
+      // Check for patterns of 3 decisions to apply simplification rules
+      if (i < decisionCount - 1) {
+        String pattern = "";
+        pattern += path[i];
+        pattern += path[i + 1];
+        pattern += path[i + 2];
+        if (pattern == "RUR") {
+          optimizedPath[optIndex++] = 'S';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "RUL") {
+          optimizedPath[optIndex++] = 'U';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "RUS") {
+          optimizedPath[optIndex++] = 'L';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "LUR") {
+          optimizedPath[optIndex++] = 'U';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "LUL") {
+          optimizedPath[optIndex++] = 'S';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "LUS") {
+          optimizedPath[optIndex++] = 'R';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "SUR") {
+          optimizedPath[optIndex++] = 'L';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "SUL") {
+          optimizedPath[optIndex++] = 'R';
+          i += 2; // Skip two additional positions
+          continue;
+        } else if (pattern == "SUS") {
+          optimizedPath[optIndex++] = 'U';
+          i += 2; // Skip two additional positions
+          continue;
+        } 
+      }//if end
+      // If no pattern is found, add the current decision
+      optimizedPath[optIndex++] = path[i];
+    }//for end
 
-  // Copy the optimized path back to the original array
-  for (int i = 0; i < optIndex; i++) {
-    path[i] = optimizedPath[i];
-  }
-  decisionCount = optIndex - 1;
+    // Copy the optimized path back to the original array
+    for (int i = 0; i < optIndex; i++) {
+      path[i] = optimizedPath[i];
+    }
+    
+    // verify if the optimized path still contains any uturns 
+    for (int i = 0; i<= decisionCount; ++i) {
+      if(optimizedPath[i] == 'U') {
+        u++;
+      }
+    }
+    if (u == 0) {
+      decisionCount = optIndex - 1;
+      break;
+    }
+  }//while end
 }
 
-// Use the optimized array
-  //  if (rightHand) {
-  //    display.gotoXY(0,3);
-  //    display.print("Right Hand Rule");
-  //    rightHandRule();
-  //  }
-  //  else if (!rightHand){ 
-  //    display.gotoXY(0,3);
-  //    display.print("Left Hand Rule");
-  //    leftHandRule(); 
-  //  }
 //Raw encoder to degree conversion
 float tick2deg(int ticks) {
   float deg;
