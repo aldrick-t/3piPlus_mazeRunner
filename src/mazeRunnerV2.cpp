@@ -838,15 +838,19 @@ void mazeRunner() {
     }
   }
 
+  display.gotoXY(0,0);
+  display.print("Running In: ");
+  display.print("3 ");
+  delay(1000);
+  display.print("2 ");
+  delay(1000);
+  display.print("1 ");
+  delay(1000);
+
   while(modeLoc == 21) {// run optimized maze
       display.gotoXY(0,0);
       display.print("Running Opt. Path...");
-        display.print("3");
-        delay(1000);
-        display.print("2");
-        delay(1000);
-        display.print("1");
-        delay(1000);
+        
 
       //Standard Straight Segment Functionality
       straightSegment();  
@@ -893,12 +897,6 @@ void mazeRunner() {
         modeLoc = 22;
         break;
       }
-
-      //Align to wheel
-      crawlFwd_alignToWheel();
-      motors.setSpeeds(0,0);
-      delay(100); //Non essential delay
-
 
 
       if(!leftMem && !centerMem && rightMem) {
