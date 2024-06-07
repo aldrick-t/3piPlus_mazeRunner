@@ -47,6 +47,7 @@ uint16_t sensVals[4];
 const int MAX_DECISIONS = 100; // Maximum size of the decision history
 char decisionHistory[MAX_DECISIONS]; // Stores decisions made during the first run
 char optimizedPath[MAX_DECISIONS]; // optimized path
+char decisionBackup[MAX_DECISIONS]; // Copies decision history prior to optimization for redundancy.
 int decisionCount = -1; // Initialize at -1 because we increment before storing
 int optCount = -1;
 char decision = 0;
@@ -779,12 +780,12 @@ void mazeRunner() {
       decisionCount++;
       decisionHistory[decisionCount] = decision;
     }
-    else if ((centerMem && (leftMem || rightMem))) { //Record T Intersections (SR and SL)
+    else if (leftMem && rightMem && (decision == 'L' || decision == 'R')) { //T and Cross Intersections
       decisionMem = decision;
       decisionCount++;
       decisionHistory[decisionCount] = decision;
     }
-    else if (leftMem && rightMem && (decision == 'L' || decision == 'R')) { 
+    else if ((centerMem && (leftMem || rightMem))) { //Record L Intersections (SR and SL)
       decisionMem = decision;
       decisionCount++;
       decisionHistory[decisionCount] = decision;
@@ -802,12 +803,19 @@ void mazeRunner() {
     display.gotoXY(0,1);
     display.print("Recorded Path:   ");
     display.gotoXY(0,2);
-    for(int i = 0; i <= decisionCount; i++) {
-      display.print(decisionHistory[i]);
+    for (int i = 0; i <= decisionCount; i++) {
+      decisionBackup[i] = decisionHistory[i];
+      display.print(decisionBackup[i]);
       if(i == 20) {
         display.gotoXY(0,3);
       }
     }
+    // for(int i = 0; i <= decisionCount; i++) {
+    //   display.print(decisionHistory[i]);
+    //   if(i == 20) {
+    //     display.gotoXY(0,3);
+    //   }
+    // }
     optimizePath(decisionHistory, decisionCount);
     display.gotoXY(0,4);
     display.print("Optimized Path:  ");
@@ -824,6 +832,13 @@ void mazeRunner() {
     display.gotoXY(0,7);
     display.print(" A        B        C ");
     if(buttonA.getSingleDebouncedPress()) {
+      Serial.print("\n");
+      Serial.print("Recorded Path: ");
+      for(int i = 0; i <= decisionCount; i++){
+        Serial.print(decisionHistory[i]);
+      }
+      Serial.print("\n");
+      Serial.print("Optimized Path: ");
       for(int i = 0; i <= decisionCount; i++){
         Serial.print(optimizedPath[i]);
       }
@@ -837,16 +852,18 @@ void mazeRunner() {
       break;
     }
   }
-
+  display.gotoXY(0,1);
+  display.print("Running in: ");
+  display.print("3 ");
+  delay(1000);
+  display.print("2 ");
+  delay(1000);
+  display.print("1 ");
+  delay(1000);
   while(modeLoc == 21) {// run optimized maze
       display.gotoXY(0,0);
       display.print("Running Opt. Path...");
-        display.print("3");
-        delay(1000);
-        display.print("2");
-        delay(1000);
-        display.print("1");
-        delay(1000);
+        
 
       //Standard Straight Segment Functionality
       straightSegment();  
@@ -893,11 +910,6 @@ void mazeRunner() {
         modeLoc = 22;
         break;
       }
-
-      //Align to wheel
-      crawlFwd_alignToWheel();
-      motors.setSpeeds(0,0);
-      delay(100); //Non essential delay
 
 
 
