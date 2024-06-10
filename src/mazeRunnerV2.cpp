@@ -53,6 +53,7 @@ char decision = 0;
 char decisionMem = 0;
 bool deadEnd = false;
 char intersection = 0;
+int printCount = 0;
 
 //Time Variables
 float prevTime = 0;
@@ -765,9 +766,10 @@ void mazeRunner() {
       decision = 'R';
     }
 
-    display.gotoXY(0,3);
+    display.gotoXY(19,0);
     display.print(decision);
-    delay(100); //Non essential delay
+    display.gotoXY(printCount,2);
+    display.print(decision);
 
     turnControl();
     motors.setSpeeds(0,0);
@@ -789,6 +791,12 @@ void mazeRunner() {
       decisionCount++;
       decisionHistory[decisionCount] = decision;
     }
+    display.gotoXY(printCount,7);
+    display.print(decisionMem);
+
+
+
+    printCount++;
 
 
     // decisionCount++;
