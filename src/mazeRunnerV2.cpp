@@ -49,7 +49,7 @@ char decisionHistory[MAX_DECISIONS]; // Stores decisions made during the first r
 char optimizedPath[MAX_DECISIONS]; // optimized path
 int decisionCount = -1; // Initialize at -1 because we increment before storing
 int optCount = -1;
-char decision = 0;
+char decision;
 char decisionMem = 0;
 bool deadEnd = false;
 char intersection = 0;
@@ -775,70 +775,61 @@ void mazeRunner() {
     motors.setSpeeds(0,0);
     delay(100); //Non essential delay
 
-    //Store decision in memory if intersection, not adding basic turns
-    if (decision == 'U') { //Record Uturn
+    // Store decision in memory if intersection, not adding basic turns
+    if (decision == 'U') { // Record U-turn
       decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decision;
+      storeDecision(decision);
     }
-    else if (decision == 'R' && centerMem && rightMem && !leftMem){ // Record L turns to the right
+    else if (decision == 'R' && centerMem && rightMem && !leftMem) { // Record R turns to the right
       decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decision;
+      storeDecision(decision);
     }
-    else if (decision == 'L' && !rightHand && centerMem && !rightMem && leftMem){ // Record L turns to the left
+    else if (decision == 'L' && !rightHand && centerMem && !rightMem && leftMem) { // Record L turns to the left
       decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decision; 
+      storeDecision(decision);
     }
-    else if (decision == 'S' && rightHand && centerMem && !rightMem && leftMem){ // Record L turns in right hand mode (S)
+    else if (decision == 'S' && rightHand && centerMem && !rightMem && leftMem) { // Record L turns in right hand mode (S)
       decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decision;
+      storeDecision(decision);
     }
-    else if (decision == 'S' && !rightHand && centerMem && rightMem && !leftMem){ // Record R turns in right hand mode (S)
+    else if (decision == 'S' && !rightHand && centerMem && rightMem && !leftMem) { // Record R turns in right hand mode (S)
       decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decision;
+      storeDecision(decision);
     }
-    else if (decision == 'L' && leftMem && !centerMem && !rightMem){ // Forced turn
-      decision = 0;
+    else if (decision == 'L' && leftMem && !centerMem && !rightMem) { // Forced left turn
+      // Do not record the forced turn as a valid decision
+      decision = " ";
     }
-    else if (decision == 'R' && !leftMem && !centerMem && rightMem){ // Forced turn
-      decision = 0;
+    else if (decision == 'R' && !leftMem && !centerMem && rightMem) { // Forced right turn
+      // Do not record the forced turn as a valid decision
+      decision = " ";
     }
     // else if ((centerMem && (leftMem || rightMem))) { //Record L (SR/SL)
     //   decisionMem = decision;
-    //   decisionCount++;
-    //   decisionHistory[decisionCount] = decision;
+    //   storeDecision(decision);
     // }
     // else if (leftMem && rightMem && (decision == 'L' || decision == 'R')) {  //Record T (L || R)
     //   decisionMem = decision;
-    //   decisionCount++;
-    //   decisionHistory[decisionCount] = decision;
+    //   storeDecision(decision);
     // }
-    else if (decision == 'R' && rightHand && rightMem && leftMem){ // T turns with right hand mode
+    else if (decision == 'R' && rightHand && rightMem && leftMem) { // T turns with right hand mode
       decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decision; 
+      storeDecision(decision);
     }
-    else if (decision == 'L' && !rightHand && rightMem && leftMem){ // T turns with left hand mode
+    else if (decision == 'L' && !rightHand && rightMem && leftMem) { // T turns with left hand mode
       decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decision; 
+      storeDecision(decision);
     }
 
-    display.gotoXY(printCount,7);
+    display.gotoXY(printCount, 7);
     display.print(decisionMem);
-
-
 
     printCount++;
 
-
     // decisionCount++;
     // decisionHistory[decisionCount] = decision;
-  }
+    }
+
 
   display.clear();
   while(true) { //Maze Solved Screen
@@ -1237,4 +1228,10 @@ void turnControl() {
         display.print("Straight          ");
         break; //END STRAIGHT
       }
+}
+
+// Function to store a decision in the history
+void storeDecision(char decision) {
+  decisionCount++;
+  decisionHistory[decisionCount] = decision;
 }
