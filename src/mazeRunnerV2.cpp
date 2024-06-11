@@ -781,16 +781,53 @@ void mazeRunner() {
       decisionCount++;
       decisionHistory[decisionCount] = decision;
     }
-    else if ((centerMem && (leftMem || rightMem))) { //Record T Intersections (SR and SL)
+    else if (decision == 'R' && centerMem && rightMem && !leftMem){ // Record L turns to the right
       decisionMem = decision;
       decisionCount++;
       decisionHistory[decisionCount] = decision;
     }
-    else if (leftMem && rightMem && (decision == 'L' || decision == 'R')) { 
+    else if (decision == 'L' && !rightHand && centerMem && !rightMem && leftMem){ // Record L turns to the left
+      decisionMem = decision;
+      decisionCount++;
+      decisionHistory[decisionCount] = decision; 
+    }
+    else if (decision == 'S' && rightHand && centerMem && !rightMem && leftMem){ // Record L turns in right hand mode (S)
       decisionMem = decision;
       decisionCount++;
       decisionHistory[decisionCount] = decision;
     }
+    else if (decision == 'S' && !rightHand && centerMem && rightMem && !leftMem){ // Record R turns in right hand mode (S)
+      decisionMem = decision;
+      decisionCount++;
+      decisionHistory[decisionCount] = decision;
+    }
+    else if (decision == 'L' && leftMem && !centerMem && !rightMem){ // Forced turn
+      decision = 0;
+    }
+    else if (decision == 'R' && !leftMem && !centerMem && rightMem){ // Forced turn
+      decision = 0;
+    }
+    // else if ((centerMem && (leftMem || rightMem))) { //Record L (SR/SL)
+    //   decisionMem = decision;
+    //   decisionCount++;
+    //   decisionHistory[decisionCount] = decision;
+    // }
+    // else if (leftMem && rightMem && (decision == 'L' || decision == 'R')) {  //Record T (L || R)
+    //   decisionMem = decision;
+    //   decisionCount++;
+    //   decisionHistory[decisionCount] = decision;
+    // }
+    else if (decision == 'R' && rightHand && rightMem && leftMem){ // T turns with right hand mode
+      decisionMem = decision;
+      decisionCount++;
+      decisionHistory[decisionCount] = decision; 
+    }
+    else if (decision == 'L' && !rightHand && rightMem && leftMem){ // T turns with left hand mode
+      decisionMem = decision;
+      decisionCount++;
+      decisionHistory[decisionCount] = decision; 
+    }
+
     display.gotoXY(printCount,7);
     display.print(decisionMem);
 
