@@ -1,8 +1,8 @@
-//===============================
+ //===============================
 // 3pi+ Line Maze Runner V2
 // Improved Maze Runner.
-// By: aldrick-t, DaniDRG04, Arles
-// Version: (May 2024)
+// By: aldrick-t, DaniDRG04, ArlesMolina
+// Version: 1.1 (JUN 2024)
 //
 //===============================
 
@@ -46,11 +46,18 @@ uint16_t sensVals[4];
 //Maze Runner Decision Memory Variables
 const int MAX_DECISIONS = 100; // Maximum size of the decision history
 char decisionHistory[MAX_DECISIONS]; // Stores decisions made during the first run
+char optimizedPath[MAX_DECISIONS]; // optimized path
 int decisionCount = -1; // Initialize at -1 because we increment before storing
-char decision = 0;
-char decisionMem = 0;
+int optCount = -1;
+char decision;
+char forcedDecision = ' ';
+char decisionMem = ' ';
 bool deadEnd = false;
 char intersection = 0;
+int printCount = 0;
+bool isForcedDecision = false; // Identificate forced decitions
+
+
 
 //Time Variables
 float prevTime = 0;
@@ -210,6 +217,7 @@ void setup() {
   display.clear();
 
   bumpSensors.calibrate();
+  Serial.begin(9600);
 }
 
 void loop() {
@@ -754,6 +762,7 @@ void mazeRunner() {
       display.print("Left Hand Rule");
       leftHandRule(); 
     }
+    
     if(leftMem == 0 && centerMem == 0 && rightMem == 1) {
       decision = 'R';
     }
@@ -761,123 +770,245 @@ void mazeRunner() {
       decision = 'R';
     }
 
-    display.gotoXY(0,3);
+    display.gotoXY(19,0);
     display.print(decision);
-    delay(100); //Non essential delay
+    display.gotoXY(printCount,2);
+    display.print(decision);
 
     turnControl();
     motors.setSpeeds(0,0);
     delay(100); //Non essential delay
 
-    //Store decision in memory if intersection not adding basic turns
-    if (decision == 'U') {
-      decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decisionMem;
-    }
-    else if (decision == 'S' && (centerMem && (leftMem || rightMem))) {
-      decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decisionMem;
-    }
-    else if (leftMem && rightMem) {
-      decisionMem = decision;
-      decisionCount++;
-      decisionHistory[decisionCount] = decisionMem;
-    }
+    handleDecision(decision, centerMem, rightMem, leftMem, rightHand);
   }
-  while(true) {
+
+  display.clear();
+  while(true) { //Maze Solved Screen
     display.gotoXY(0,0);
     display.print("Maze Solved!     ");
-    optimizePath(decisionHistory, decisionCount);
-    display.gotoXY(0,6);
+    display.gotoXY(0,1);
+    display.print("Recorded Path:   ");
+    display.gotoXY(0,2);
     for(int i = 0; i <= decisionCount; i++) {
       display.print(decisionHistory[i]);
-      display.print(" ");
       if(i == 20) {
-        display.gotoXY(0,7);
+        display.gotoXY(0,3);
       }
+    }
+    optimizePath(decisionHistory, decisionCount);
+    display.gotoXY(0,4);
+    display.print("Optimized Path:  ");
+    display.gotoXY(0,5);
+    for(int i = 0; i <= decisionCount; i++) {
+      display.print(optimizedPath[i]);
+    }
+    display.gotoXY(0,4);
+    if (rightHand) {display.print("Right Hand Rule");}
+    else {display.print("Left Hand Rule");}
+
+    display.gotoXY(0,6);
+    display.print("SER-OUT RUN-OPT  QUIT");
+    display.gotoXY(0,7);
+    display.print(" A        B        C ");
+    if(buttonA.getSingleDebouncedPress()) {
+      for(int i = 0; i <= decisionCount; i++){
+        Serial.print(optimizedPath[i]);
+      }
+    }
+    else if(buttonB.getSingleDebouncedPress()) {
+      modeLoc = 21;
+      break;
+    }
+    else if(buttonC.getSingleDebouncedPress()) {
+      modeLoc = 101;
+      break;
     }
   }
 
+  display.gotoXY(0,0);
+  display.print("Running In: ");
+  display.print("3 ");
+  delay(1000);
+  display.print("2 ");
+  delay(1000);
+  display.print("1 ");
+  delay(1000);
+
+while(modeLoc == 21) {// run optimized maze
+      display.gotoXY(0,0);
+      display.print("Running Opt. Path...");
+        
+
+      //Standard Straight Segment Functionality
+      straightSegment();  
+
+      //Crawl Forward to verify intersection detection
+      motors.setSpeeds(61,61);
+      delay(38); //Essential timing delay
+
+      leftMem = 0;
+      centerMem = 0;
+      rightMem = 0;
+
+      //Update Sensors after intersection detection and crawl
+      updateSensors();
+      leftMem = left;
+      rightMem = right;
+      display.gotoXY(0,1);
+      display.print(leftMem);
+      display.gotoXY(4,1);
+      display.print(rightMem);
+
+      
+      //Align to wheel
+      crawlFwd_alignToWheel();
+      motors.setSpeeds(0,0);
+      delay(100); //Non essential delay
+
+      //Update Sensors again
+      updateSensors();
+      if (center == 1 || sensVals[1] > 700 || sensVals[3] > 700) {
+        centerMem = 1;
+        display.gotoXY(2,1);
+        display.print(centerMem);
+      }
+      else {
+        centerMem = 0;
+        display.gotoXY(2,1);
+        display.print(centerMem);
+      }
+      //End of maze detection
+      if(leftMem && centerMem && rightMem && left && center && right || (optCount == decisionCount)) {
+        display.clear();
+        motors.setSpeeds(0,0);
+        modeLoc = 22;
+        break;
+      }
+
+      if(!leftMem && !centerMem && rightMem) {
+        decision = 'R';
+      }
+      else if (leftMem && !centerMem && !rightMem) {
+        decision = 'L';
+      }
+      else {
+        optCount++;
+        decision = optimizedPath[optCount];
+      }
+      if (decision == 'U' && rightMem) {
+        decision = 'R';
+      }
+
+      display.gotoXY(0,1);
+      display.print(decision);
+
+      //Run decision
+      turnControl();
+      motors.setSpeeds(0,0);
+      delay(100);
+  }
+  
+  while(modeLoc == 22) {//Post run opt maze menu (final screen)
+    display.gotoXY(0,0);
+    display.print("Opt. Path Completed!");
+
+  }
 }
 
 //==================== Utility Functions ==========================
 
-//Path optimizer
-void optimizePath(char path[], int &decisionCount) {
-  char optimizedPath[MAX_DECISIONS];
-  int optIndex = 0;
-  
-  for (int i = 0; i <= decisionCount; ++i) {
-    // Check for patterns of 3 decisions to apply simplification rules
-    if (i < decisionCount - 1) {
-      String pattern = "";
-      pattern += path[i];
-      pattern += path[i + 1];
-      pattern += path[i + 2];
-      if (pattern == "RUR") {
-        optimizedPath[optIndex++] = 'S';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "RUL") {
-        optimizedPath[optIndex++] = 'S';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "RUS") {
-        optimizedPath[optIndex++] = 'L';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "LUR") {
-        optimizedPath[optIndex++] = 'R';
-        i += 2; // Skip two additional positions
-        continue;
-      } 
-      else if (pattern == "LUL") {
-        optimizedPath[optIndex++] = 'S';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "LUS") {
-        optimizedPath[optIndex++] = 'R';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "SUR") {
-        optimizedPath[optIndex++] = 'L';
-        i += 2; // Skip two additional positions
-        continue;
-      } else if (pattern == "SUL") {
-        optimizedPath[optIndex++] = 'R';
-        i += 2; // Skip two additional positions
-        continue;
-      } 
-      else if (pattern == "SUS") {
-        optimizedPath[optIndex++] = 'U';
-        i += 2; // Skip two additional positions
-        continue;
-      } 
+// Helper function to shift the array elements to the left
+void shiftArrayLeft(char path[], int start, int shiftBy, int &len) {
+    for (int i = start; i < len - shiftBy; i++) {
+        path[i] = path[i + shiftBy];
     }
-    // If no pattern is found, add the current decision
-    optimizedPath[optIndex++] = path[i];
-  }
-
-  // Copy the optimized path back to the original array
-  for (int i = 0; i < optIndex; i++) {
-    path[i] = optimizedPath[i];
-  }
-  decisionCount = optIndex - 1;
+    len -= shiftBy;
 }
 
-// Use the optimized array
-  //  if (rightHand) {
-  //    display.gotoXY(0,3);
-  //    display.print("Right Hand Rule");
-  //    rightHandRule();
-  //  }
-  //  else if (!rightHand){ 
-  //    display.gotoXY(0,3);
-  //    display.print("Left Hand Rule");
-  //    leftHandRule(); 
-  //  }
+// Path optimizer function
+void optimizePath(char path[], int &decisionCount) {
+  bool simplified = true;
+  int optIndex = 0;
+  int u = 0;
+
+  while (simplified) {
+    simplified = false;
+    optIndex = 0;
+
+    for (int i = 0; i <= decisionCount; ++i) {
+      // Check for patterns of 3 decisions to apply simplification rules
+      if (i < decisionCount - 1) {
+        if (path[i] == 'S' && path[i + 1] == 'U' && path[i + 2] == 'L') {
+          optimizedPath[optIndex++] = 'R';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'S' && path[i + 1] == 'U' && path[i + 2] == 'R') {
+          optimizedPath[optIndex++] = 'L';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'L' && path[i + 1] == 'U' && path[i + 2] == 'S') {
+          optimizedPath[optIndex++] = 'R';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'R' && path[i + 1] == 'U' && path[i + 2] == 'S') {
+          optimizedPath[optIndex++] = 'L';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'L' && path[i + 1] == 'U' && path[i + 2] == 'L') {
+          optimizedPath[optIndex++] = 'S';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'R' && path[i + 1] == 'U' && path[i + 2] == 'R') {
+          optimizedPath[optIndex++] = 'S';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'R' && path[i + 1] == 'U' && path[i + 2] == 'L') {
+          optimizedPath[optIndex++] = 'U';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'L' && path[i + 1] == 'U' && path[i + 2] == 'R') {
+          optimizedPath[optIndex++] = 'U';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        } else if (path[i] == 'S' && path[i + 1] == 'U' && path[i + 2] == 'S') {
+          optimizedPath[optIndex++] = 'U';
+          i += 2; // Skip two additional positions
+          simplified = true;
+          continue;
+        }
+      }
+      // If no pattern is found, add the current decision
+      optimizedPath[optIndex++] = path[i];
+    }
+
+    // Copy the optimized path back to the original array
+    for (int i = 0; i < optIndex; i++) {
+      path[i] = optimizedPath[i];
+    }
+
+    // Verify if the optimized path still contains any U-turns
+    u = 0;
+    for (int i = 0; i < optIndex; ++i) {
+      if (optimizedPath[i] == 'U') {
+        u++;
+      }
+    }
+    if (u == 0) {
+      decisionCount = optIndex - 1;
+      break;
+    }
+  }
+}
+
+
 //Raw encoder to degree conversion
 float tick2deg(int ticks) {
   float deg;
@@ -1048,3 +1179,54 @@ void turnControl() {
         break; //END STRAIGHT
       }
 }
+
+// Function to store a decision in the history
+void storeDecision(char decision) {
+  if (decision != ' ' && !isForcedDecision) { // Avoid storing forced or empty decisions
+    decisionCount++;
+    decisionHistory[decisionCount] = decision;
+  }
+}
+
+// Function to handle decisions and store valid ones
+void handleDecision(char decision, bool centerMem, bool rightMem, bool leftMem, bool rightHand) {
+  isForcedDecision = false; // Reset the forced decision flag for each new decision
+
+  if (decision == 'U') { // Record U-turn
+    decisionMem = decision;
+    storeDecision(decision);
+  } else if (decision == 'R' && centerMem && rightMem && !leftMem) { // Record right turns to the right
+    decisionMem = decision;
+    storeDecision(decision);
+  } else if (decision == 'L' && !rightHand && centerMem && !rightMem && leftMem) { // Record left turns to the left
+    decisionMem = decision;
+    storeDecision(decision);
+  } else if (decision == 'S' && rightHand && centerMem && !rightMem && leftMem) { // Record left turns in right hand mode (S)
+    decisionMem = decision;
+    storeDecision(decision);
+  } else if (decision == 'S' && !rightHand && centerMem && rightMem && !leftMem) { // Record right turns in right hand mode (S)
+    decisionMem = decision;
+    storeDecision(decision);
+  } else if (decision == 'L' && leftMem && !centerMem && !rightMem) { // Forced left turn
+    decision = ' '; // Clear the current decision
+    isForcedDecision = true; // Mark as a forced decision
+  } else if (decision == 'R' && !leftMem && !centerMem && rightMem) { // Forced right turn
+    decision = ' '; // Clear the current decision
+    isForcedDecision = true; // Mark as a forced decision
+  } else if (decision == 'R' && rightHand && rightMem && leftMem) { // T turns with right hand mode
+    decisionMem = decision;
+    storeDecision(decision);
+  } else if (decision == 'L' && !rightHand && rightMem && leftMem) { // T turns with left hand mode
+    decisionMem = decision;
+    storeDecision(decision);
+  }
+
+  display.gotoXY(printCount, 7);
+  if (decisionMem != ' ') { // Only print valid decisions
+    display.print(decisionMem);
+    printCount++;
+  }
+}
+
+
+
